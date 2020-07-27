@@ -23,7 +23,7 @@ if [ -n "$HAPROXYCERTSHOME" ]; then
 
     if ! crontab -l | grep -q 'acme.sh'
     then
-        echo "0 0 12 1 1/3 ? * acme.sh --renew --tlsport 10443" "${ACMEOPTS[@]}" "--reloadcmd \"supervisorctl restart haproxy"\" | crontab -
+        echo "0 0 12 1 1/2 ? * acme.sh --renew --tlsport 10443" "${ACMEOPTS[@]}" "--reloadcmd \"supervisorctl restart haproxy"\" | crontab -
     fi
 fi
 
