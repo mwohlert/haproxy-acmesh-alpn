@@ -4,7 +4,11 @@ set -euo pipefail
 
 # Aquire initial certificates
 if [ -n "$HAPROXYCERTSHOME" ]; then
-    ACMEOPTS=("--test" "--alpn")
+    ACMEOPTS=("--alpn")
+    if [ "$TEST"  == "true" ]; then
+        ACMEOPTS+=("test")
+    fi
+
     for i in ${DOMAINS//,/ }
     do
         ACMEOPTS+=( "-d" "$i" )
@@ -21,7 +25,7 @@ if [ -n "$HAPROXYCERTSHOME" ]; then
             "$CERTDIR/$i".key > "$HAPROXYCERTSHOME/$i".pem
     done
 
-    if ! crontab -l | grep -q 'acme.sh'
+    if ! crontab -l | grep -q 'acme.sh' && ! "$TEST"  == "true"
     then
         echo "0 0 12 1 1/2 ? * acme.sh --renew --tlsport 10443" "${ACMEOPTS[@]}" "--reloadcmd \"supervisorctl restart haproxy"\" | crontab -
     fi

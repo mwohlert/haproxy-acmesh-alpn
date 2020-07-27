@@ -20,12 +20,14 @@ docker build -t haproxy-acmesh-alpn:latest .
 
 ### Run container:
 
-Example of run command (replace DOMAIN and volume paths with yours)
+Example of run command (replace DOMAIN, TEST and volume paths with yours)
+Setting TEST to true will result in staging letsencrypt certificates, which is useful for testing.
 
 ```
 docker run --name lb -d \
     -e DOMAINS=my.domain,my.other.domain \
-    -v /srv/letsencrypt:/root/acme.sh \
+    -e TEST=false \
+    -v /srv/letsencrypt:/root/.acme.sh \
     -v /srv/haproxycfg/haproxy.cfg:/etc/haproxy/haproxy.cfg \
     --network my_network \
     -p 80:80 -p 443:443 \
@@ -45,8 +47,9 @@ services:
         container_name: lb
         environment:
             - DOMAINS=my.domain,my.other.domain
+            - TEST=false
         volumes:
-            - '$PWD/data/letsencrypt:/root/acme.sh'
+            - '$PWD/data/letsencrypt:/root/.acme.sh'
             - '$PWD/data/haproxy.cfg:/etc/haproxy/haproxy.cfg'
         networks:
             - lbnet
