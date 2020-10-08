@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # Aquire initial certificates
-if [ -n "$HAPROXYCERTSHOME" ]; then
+if [ ! -d "$HAPROXYCERTSHOME" ]; then
     ACMEOPTS=("--alpn")
     if [ "$TEST"  == "true" ]; then
         ACMEOPTS+=("test")
