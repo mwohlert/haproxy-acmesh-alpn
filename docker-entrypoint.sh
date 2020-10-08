@@ -9,17 +9,11 @@ if [ -n "$HAPROXYCERTSHOME" ]; then
         ACMEOPTS+=("test")
     fi
 
+    mkdir -p "$HAPROXYCERTSHOME"
     for i in ${DOMAINS//,/ }
     do
-        ACMEOPTS+=( "-d" "$i" )
-    done
-
-    echo "${ACMEOPTS[@]}"
-    acme.sh --issue "${ACMEOPTS[@]}"
-
-    mkdir -p /etc/haproxy/certs
-    for i in ${DOMAINS//,/ }
-    do
+        echo "Getting certificate for $i"
+        acme.sh --issue "${ACMEOPTS[@]}" -d "$i"
         CERTDIR="$ACMEHOME/$i"
         cat "$CERTDIR"/fullchain.cer \
             "$CERTDIR/$i".key > "$HAPROXYCERTSHOME/$i".pem
