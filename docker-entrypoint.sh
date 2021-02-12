@@ -24,7 +24,7 @@ do
     CERTDIR="$ACMEHOME/$i"
     if [[ -f "$CERTDIR"/fullchain.cer && -f "$CERTDIR/$i".key ]]; then
         #Check if existing cert expires within the next 30 days
-        if openssl x509 -checkend 2592000 -noout -in "$CERTDIR"/fullchain.cer
+        if openssl x509 -checkend 2592000 -noout -in "$CERTDIR"/fullchain.cer; then
             echo "Certificate is still valid at least 30 days"
             continue
         fi
