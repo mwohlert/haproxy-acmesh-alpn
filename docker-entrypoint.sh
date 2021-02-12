@@ -26,11 +26,15 @@ do
         #Check if existing cert expires within the next 30 days
         if openssl x509 -checkend 2592000 -noout -in "$CERTDIR"/fullchain.cer; then
             echo "Certificate is still valid at least 30 days"
-            continue
+        else
+            echo "Certificate is not valid. Getting certificate for $i"
+            acme.sh --issue "${ACMEOPTS[@]}" -d "$i"
         fi
+    else
+        echo "Certificate does not exist. Getting certificate for $i"
+        acme.sh --issue "${ACMEOPTS[@]}" -d "$i"
     fi
-    echo "Certificate is not valid or does not exist. Getting certificate for $i"
-    acme.sh --issue "${ACMEOPTS[@]}" -d "$i"
+
     cat "$CERTDIR"/fullchain.cer \
         "$CERTDIR/$i".key > "$HAPROXYCERTSHOME/$i".pem
 done
