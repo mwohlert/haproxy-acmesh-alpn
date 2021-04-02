@@ -3,7 +3,8 @@
 set -euo pipefail
 ACMEOPTS=("--alpn")
 if [ "$TEST"  == "true" ]; then
-    ACMEOPTS+=("test")
+    ACMEOPTS+=(" --test")
+    ACMEOPTS+=(" --debug")
 fi
 
 # Setup haproxy dir 
@@ -27,7 +28,7 @@ do
         if openssl x509 -checkend 2592000 -noout -in "$CERTDIR"/fullchain.cer; then
             echo "Certificate is still valid at least 30 days"
         else
-            echo "Certificate is not valid. Getting certificate for $i"
+            echo "Certificate is not valid/will expire soon. Getting certificate for $i"
             acme.sh --issue "${ACMEOPTS[@]}" -d "$i"
         fi
     else
