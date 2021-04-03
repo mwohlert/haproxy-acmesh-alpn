@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
-ACMEOPTS=("--alpn")
+ACMEOPTS=()
 if [ "$TEST"  == "true" ]; then
     ACMEOPTS+=("--staging")
     ACMEOPTS+=("--debug")
@@ -15,7 +15,7 @@ fi
 # Setup crontab
 if ! crontab -l | grep -q 'acme.sh' && ! "$TEST"  == "true"
 then
-    echo "0 0 0 1/30 * ? * acme.sh --renew --tlsport 10443" "${ACMEOPTS[@]}" "--reloadcmd \"supervisorctl restart haproxy"\" | crontab -
+    echo "0 0 0 1/30 * ? * acme.sh --renew --alpn --tlsport 10443" "${ACMEOPTS[@]}" "--reloadcmd \"supervisorctl restart haproxy"\" | crontab -
 fi
 
 # Check or acquire certificates
@@ -29,11 +29,11 @@ do
             echo "Certificate is still valid at least 30 days"
         else
             echo "Certificate is not valid/will expire soon. Getting certificate for $i"
-            acme.sh --issue "${ACMEOPTS[@]}" -d "$i"
+            acme.sh --issue --standalone "${ACMEOPTS[@]}" -d "$i"
         fi
     else
         echo "Certificate does not exist. Getting certificate for $i"
-        acme.sh --issue "${ACMEOPTS[@]}" -d "$i"
+        acme.sh --issue --standalone "${ACMEOPTS[@]}" -d "$i"
     fi
 
     cat "$CERTDIR"/fullchain.cer \
