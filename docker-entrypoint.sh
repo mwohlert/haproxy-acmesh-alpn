@@ -3,8 +3,8 @@
 set -euo pipefail
 ACMEOPTS=("--alpn")
 if [ "$TEST"  == "true" ]; then
-    ACMEOPTS+=(" --test")
-    ACMEOPTS+=(" --debug")
+    ACMEOPTS+=("--staging")
+    ACMEOPTS+=("--debug")
 fi
 
 # Setup haproxy dir 
