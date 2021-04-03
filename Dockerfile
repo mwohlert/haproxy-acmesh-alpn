@@ -5,7 +5,7 @@ ENV ACMEHOME "/root/.acme.sh"
 ENV HAPROXYCERTSHOME "/etc/haproxy/certs"
 ENV TEST "false"
 
-RUN apk add --no-cache bash acme.sh haproxy supervisor \
+RUN apk add --no-cache bash acme.sh haproxy supervisor socat \
     && rm -rf /var/cache/apk/*
 
 COPY conf/haproxy.cfg /etc/haproxy/haproxy.cfg
