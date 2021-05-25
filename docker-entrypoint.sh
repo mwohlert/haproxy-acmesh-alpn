@@ -29,11 +29,11 @@ do
             echo "Certificate is still valid at least 30 days"
         else
             echo "Certificate is not valid/will expire soon. Getting certificate for $i"
-            acme.sh --issue --standalone "${ACMEOPTS[@]}" -d "$i"
+            acme.sh --issue --alpn "${ACMEOPTS[@]}" -d "$i"
         fi
     else
         echo "Certificate does not exist. Getting certificate for $i"
-        acme.sh --issue --standalone "${ACMEOPTS[@]}" -d "$i"
+        acme.sh --issue --alpn "${ACMEOPTS[@]}" -d "$i"
     fi
 
     cat "$CERTDIR"/fullchain.cer \
