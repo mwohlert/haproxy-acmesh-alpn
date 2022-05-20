@@ -18,6 +18,9 @@ then
     echo "0 0 0 1/30 * ? * acme.sh --renew --alpn --tlsport 10443" "${ACMEOPTS[@]}" "--reloadcmd \"supervisorctl restart haproxy"\" | crontab -
 fi
 
+#Make sure we are registered with zerossl
+acme.sh --register-account -m "$EMAIL"
+
 # Check or acquire certificates
 for i in ${DOMAINS//,/ }
 do
