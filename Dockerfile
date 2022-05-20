@@ -4,6 +4,7 @@ ENV DOMAINS ""
 ENV ACMEHOME "/root/.acme.sh"
 ENV HAPROXYCERTSHOME "/etc/haproxy/certs"
 ENV TEST "false"
+ENV EMAIL ""
 
 RUN apk add --no-cache bash acme.sh haproxy supervisor socat \
     && rm -rf /var/cache/apk/*
