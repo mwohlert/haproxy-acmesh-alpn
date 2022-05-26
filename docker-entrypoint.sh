@@ -7,15 +7,23 @@ if [ "$TEST"  == "true" ]; then
     ACMEOPTS+=("--debug")
 fi
 
+ACMERENEWOPTS=()
+if [ "$MODE" == "alpn" ]; then
+    ACMERENEWOPTS+=("--alpn")
+    ACMERENEWOPTS+=("--tlsport 10443")
+elif [ "$MODE" == "http" ]; then
+    ACMERENEWOPTS+=("--httport 10808")
+fi
+
 # Setup haproxy dir 
 if [ ! -d "$HAPROXYCERTSHOME" ]; then
     mkdir -p "$HAPROXYCERTSHOME"
 fi
 
 # Setup crontab
-if ! crontab -l | grep -q 'acme.sh' && ! "$TEST"  == "true"
+if ! crontab -l | grep -q 'acme.sh' && "$TEST" == "false"
 then
-    echo "0 0 0 1/30 * ? * acme.sh --renew --alpn --tlsport 10443" "${ACMEOPTS[@]}" "--reloadcmd \"supervisorctl restart haproxy"\" | crontab -
+    echo "0 0 0 1/30 * ? * acme.sh --renew" "${ACMERENEWOPTS[@]}" "${ACMEOPTS[@]}" "--reloadcmd \"supervisorctl restart haproxy"\" | crontab -
 fi
 
 #Make sure we are registered with zerossl
@@ -32,11 +40,19 @@ do
             echo "Certificate is still valid at least 30 days"
         else
             echo "Certificate is not valid/will expire soon. Getting certificate for $i"
-            acme.sh --issue --alpn "${ACMEOPTS[@]}" -d "$i"
+            if [ "$MODE" == "alpn" ]; then
+                acme.sh --issue --alpn "${ACMEOPTS[@]}" -d "$i"
+            else
+                acme.sh --issue --standalone "${ACMEOPTS[@]}" -d "$i"
+            fi
         fi
     else
         echo "Certificate does not exist. Getting certificate for $i"
-        acme.sh --issue --alpn "${ACMEOPTS[@]}" -d "$i"
+        if [ "$MODE" == "alpn" ]; then
+            acme.sh --issue --alpn "${ACMEOPTS[@]}" -d "$i"
+        else
+            acme.sh --issue --standalone "${ACMEOPTS[@]}" -d "$i"
+        fi
     fi
 
     cat "$CERTDIR"/fullchain.cer \
