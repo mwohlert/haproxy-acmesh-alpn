@@ -2,14 +2,12 @@
 
 set -euo pipefail
 ACMEOPTS=()
-ACMEOPTS+=("--server $SERVER")
 if [ "$TEST"  == "true" ]; then
     ACMEOPTS+=("--staging")
     ACMEOPTS+=("--debug")
 fi
 
 ACMERENEWOPTS=()
-ACMERENEWOPTS+=("--server $SERVER")
 if [ "$MODE" == "alpn" ]; then
     ACMERENEWOPTS+=("--alpn")
     ACMERENEWOPTS+=("--tlsport 10443")
@@ -28,8 +26,11 @@ then
     echo "0 0 0 1/30 * ? * acme.sh --renew" "${ACMERENEWOPTS[@]}" "${ACMEOPTS[@]}" "--reloadcmd \"supervisorctl restart haproxy"\" | crontab -
 fi
 
+# Set default CA
+acme.sh  --set-default-ca  --server "$SERVER"
+
 #Make sure we are registered 
-acme.sh --register-account -m "$EMAIL" --server "$SERVER"
+acme.sh --register-account -m "$EMAIL"
 
 # Check or acquire certificates
 for i in ${DOMAINS//,/ }
