@@ -1,4 +1,4 @@
-FROM alpine:3.15
+FROM alpine:3.20
 
 ENV DOMAINS ""
 ENV ACMEHOME "/root/.acme.sh"
@@ -8,7 +8,7 @@ ENV EMAIL ""
 ENV MODE="alpn"
 ENV SERVER="zerossl"
 
-RUN apk add --no-cache bash acme.sh haproxy supervisor socat \
+RUN apk add --no-cache cron bash acme.sh haproxy supervisor socat \
     && rm -rf /var/cache/apk/*
 
 COPY conf/haproxy.cfg /etc/haproxy/haproxy.cfg

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+
+REFRESH_SCRIPT_PATH="/etc/periodic/daily/001.refresh-certs"
+readonly REFRESH_SCRIPT_PATH
+
 ACMEOPTS=()
 if [ "$TEST"  == "true" ]; then
     ACMEOPTS+=("--staging")
@@ -21,9 +25,12 @@ if [ ! -d "$HAPROXYCERTSHOME" ]; then
 fi
 
 # Setup crontab
-if ! crontab -l | grep -q 'acme.sh' && "$TEST" == "false"
-then
-    echo "0 0 0 1/30 * ? * acme.sh --renew" "${ACMERENEWOPTS[@]}" "${ACMEOPTS[@]}" "--reloadcmd \"supervisorctl restart haproxy"\" | crontab -
+if [ ! -f "$REFRESH_SCRIPT_PATH" ] && [ "$TEST" == "false" ]; then
+    cat << EOF > "$REFRESH_SCRIPT_PATH"
+#!/bin/bash
+acme.sh --cron ${ACMERENEWOPTS[@]} ${ACMEOPTS[@]} --reloadcmd "supervisorctl restart haproxy"
+EOF
+    chmod 755 "$REFRESH_SCRIPT_PATH"
 fi
 
 # Set default CA
@@ -62,4 +69,4 @@ do
         "$CERTDIR/$i".key > "$HAPROXYCERTSHOME/$i".pem
 done
 
-/usr/bin/supervisord
+/usr/bin/supervisord -c /etc/supervisor.d/supervisord.ini

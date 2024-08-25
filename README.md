@@ -18,6 +18,16 @@ docker pull mwohlert/haproxy-acmesh-alpn
 docker build -t haproxy-acmesh-alpn:latest .
 ```
 
+## Environment variables
+
+| Variable Key | Default Value | Description|
+|--------------|---------------|------------|
+| DOMAINS      |               | Comma seperated lists of domains/subdomains to generate certs for |
+| TEST         | false         | Run verbose and in debug mode for testing purposes. <br/> Possible Values: <br/> - "false" <br/> - "true" |
+| EMAIL        |               | Email to register with the CA with \
+| MODE         | alpn          | Wether to use ALPN or HTTP. <br/> Possible Values: <br/> - "alpn" <br/> - "http" |
+| SERVER       | zerossl       | Name for CA according to: https://github.com/acmesh-official/acme.sh/wiki/Server |
+
 ### Run container:
 
 Example of run command (replace DOMAIN, TEST and volume paths with yours)
