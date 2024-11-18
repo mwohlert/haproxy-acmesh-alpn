@@ -36,7 +36,7 @@ acme.sh --register-account -m "$EMAIL"
 for i in ${DOMAINS//,/ }
 do
     echo "Check if certificate for $i exists and is valid"
-    CERTDIR="$ACMEHOME/$i"
+    CERTDIR="$ACMEHOME/${i}_ecc"
     if [[ -f "$CERTDIR"/fullchain.cer && -f "$CERTDIR/$i".key ]]; then
         #Check if existing cert expires within the next 30 days
         if openssl x509 -checkend 2592000 -noout -in "$CERTDIR"/fullchain.cer; then
