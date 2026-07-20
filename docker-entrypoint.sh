@@ -2,71 +2,109 @@
 
 set -euo pipefail
 
-REFRESH_SCRIPT_PATH="/etc/periodic/daily/001.refresh-certs"
-readonly REFRESH_SCRIPT_PATH
+readonly REFRESH_SCRIPT_PATH="/etc/periodic/daily/001.refresh-certs"
+readonly DEPLOY_SCRIPT_PATH="/deploy-haproxy-certs.sh"
+readonly RENEWAL_WINDOW_SECONDS=2592000
 
-ACMEOPTS=()
-if [ "$TEST"  == "true" ]; then
-    ACMEOPTS+=("--staging")
-    ACMEOPTS+=("--debug")
+ACME_OPTIONS=(--use-wget)
+if [ "$TEST" == "true" ]; then
+    ACME_OPTIONS+=(--staging --debug)
 fi
 
-ACMERENEWOPTS=()
-if [ "$MODE" == "alpn" ]; then
-    ACMERENEWOPTS+=("--alpn")
-    ACMERENEWOPTS+=("--tlsport 10443")
-elif [ "$MODE" == "http" ]; then
-    ACMERENEWOPTS+=("--httport 10808")
-fi
+case "$MODE" in
+    alpn)
+        ISSUE_OPTIONS=(--alpn)
+        RENEW_OPTIONS=(--alpn --tlsport 10443)
+        RENEW_PORT_KEY="Le_TLSPort"
+        RENEW_PORT=10443
+        ;;
+    http)
+        ISSUE_OPTIONS=(--standalone)
+        RENEW_OPTIONS=(--httpport 10808)
+        RENEW_PORT_KEY="Le_HTTPPort"
+        RENEW_PORT=10808
+        ;;
+    *)
+        echo "Unsupported MODE: $MODE" >&2
+        exit 1
+        ;;
+esac
 
-# Setup haproxy dir 
-if [ ! -d "$HAPROXYCERTSHOME" ]; then
-    mkdir -p "$HAPROXYCERTSHOME"
-fi
+cert_dir() {
+    local domain="$1"
 
-# Setup crontab
-if [ ! -f "$REFRESH_SCRIPT_PATH" ] && [ "$TEST" == "false" ]; then
-    cat << EOF > "$REFRESH_SCRIPT_PATH"
-#!/bin/bash
-acme.sh --cron ${ACMERENEWOPTS[@]} ${ACMEOPTS[@]} --reloadcmd "supervisorctl restart haproxy"
-EOF
-    chmod 755 "$REFRESH_SCRIPT_PATH"
-fi
-
-# Set default CA
-acme.sh  --set-default-ca  --server "$SERVER"
-
-#Make sure we are registered 
-acme.sh --register-account -m "$EMAIL"
-
-# Check or acquire certificates
-for i in ${DOMAINS//,/ }
-do
-    echo "Check if certificate for $i exists and is valid"
-    CERTDIR="$ACMEHOME/$i"
-    if [[ -f "$CERTDIR"/fullchain.cer && -f "$CERTDIR/$i".key ]]; then
-        #Check if existing cert expires within the next 30 days
-        if openssl x509 -checkend 2592000 -noout -in "$CERTDIR"/fullchain.cer; then
-            echo "Certificate is still valid at least 30 days"
-        else
-            echo "Certificate is not valid/will expire soon. Getting certificate for $i"
-            if [ "$MODE" == "alpn" ]; then
-                acme.sh --issue --alpn "${ACMEOPTS[@]}" -d "$i"
-            else
-                acme.sh --issue --standalone "${ACMEOPTS[@]}" -d "$i"
-            fi
-        fi
+    if [[ -f "$ACMEHOME/${domain}_ecc/fullchain.cer" ]]; then
+        echo "$ACMEHOME/${domain}_ecc"
+    elif [[ -f "$ACMEHOME/${domain}/fullchain.cer" ]]; then
+        echo "$ACMEHOME/${domain}"
     else
-        echo "Certificate does not exist. Getting certificate for $i"
-        if [ "$MODE" == "alpn" ]; then
-            acme.sh --issue --alpn "${ACMEOPTS[@]}" -d "$i"
-        else
-            acme.sh --issue --standalone "${ACMEOPTS[@]}" -d "$i"
-        fi
+        echo "$ACMEHOME/${domain}_ecc"
+    fi
+}
+
+set_renewal_port() {
+    local domain="$1"
+    local config
+    config="$(cert_dir "$domain")/$domain.conf"
+
+    if [[ ! -f "$config" ]]; then
+        return
     fi
 
-    cat "$CERTDIR"/fullchain.cer \
-        "$CERTDIR/$i".key > "$HAPROXYCERTSHOME/$i".pem
+    if grep -q "^${RENEW_PORT_KEY}=" "$config"; then
+        sed -i "s/^${RENEW_PORT_KEY}=.*/${RENEW_PORT_KEY}='${RENEW_PORT}'/" "$config"
+    else
+        echo "${RENEW_PORT_KEY}='${RENEW_PORT}'" >> "$config"
+    fi
+
+    echo "Set ${RENEW_PORT_KEY}=${RENEW_PORT} for renewals in $config"
+}
+
+issue_certificate() {
+    acme.sh --issue "${ISSUE_OPTIONS[@]}" "${ACME_OPTIONS[@]}" -d "$1"
+}
+
+: "${DOMAINS:?DOMAINS is required}"
+: "${EMAIL:?EMAIL is required}"
+
+IFS=',' read -r -a domains <<< "$DOMAINS"
+mkdir -p "$HAPROXYCERTSHOME"
+
+mkdir -p "$(dirname "$REFRESH_SCRIPT_PATH")"
+cat > "$REFRESH_SCRIPT_PATH" << EOF
+#!/usr/bin/env bash
+set -euo pipefail
+exec >> /proc/1/fd/1 2>> /proc/1/fd/2
+export DOMAINS='${DOMAINS}'
+export ACMEHOME='${ACMEHOME}'
+export HAPROXYCERTSHOME='${HAPROXYCERTSHOME}'
+acme.sh --cron ${RENEW_OPTIONS[*]} ${ACME_OPTIONS[*]} --reloadcmd "${DEPLOY_SCRIPT_PATH}"
+EOF
+chmod 755 "$REFRESH_SCRIPT_PATH"
+
+acme.sh --set-default-ca --server "$SERVER" "${ACME_OPTIONS[@]}" || true
+
+has_certificates=false
+for domain in "${domains[@]}"; do
+    if [[ -f "$ACMEHOME/${domain}_ecc/fullchain.cer" || -f "$ACMEHOME/${domain}/fullchain.cer" ]]; then
+        has_certificates=true
+        break
+    fi
+done
+if [ "$has_certificates" = false ]; then
+    acme.sh --register-account -m "$EMAIL" "${ACME_OPTIONS[@]}" || true
+fi
+
+for domain in "${domains[@]}"; do
+    directory="$(cert_dir "$domain")"
+    if [[ ! -f "$directory/fullchain.cer" || ! -f "$directory/$domain.key" ]] ||
+        ! openssl x509 -checkend "$RENEWAL_WINDOW_SECONDS" -noout -in "$directory/fullchain.cer"; then
+        issue_certificate "$domain"
+    fi
+
+    set_renewal_port "$domain"
 done
 
-/usr/bin/supervisord -c /etc/supervisor.d/supervisord.ini
+"$DEPLOY_SCRIPT_PATH"
+
+exec /usr/bin/supervisord -n -c /etc/supervisord.conf

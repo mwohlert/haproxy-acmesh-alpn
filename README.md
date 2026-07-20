@@ -1,8 +1,8 @@
 
 # haproxy-acmesh-alpn
 
-This container provides an HAProxy instance with Let's Encrypt certificates generated
-at startup using acme.sh with the tls-alpn-01 method. This is useful if you can't use port 80 for verification.
+This container runs HAProxy with certificates managed by acme.sh. It supports
+ZeroSSL by default and both `tls-alpn-01` and `http-01` challenges.
 
 ## Usage
 
@@ -22,20 +22,23 @@ docker build -t haproxy-acmesh-alpn:latest .
 
 | Variable Key | Default Value | Description|
 |--------------|---------------|------------|
-| DOMAINS      |               | Comma seperated lists of domains/subdomains to generate certs for |
-| TEST         | false         | Run verbose and in debug mode for testing purposes. <br/> Possible Values: <br/> - "false" <br/> - "true" |
-| EMAIL        |               | Email to register with the CA with \
-| MODE         | alpn          | Wether to use ALPN or HTTP. <br/> Possible Values: <br/> - "alpn" <br/> - "http" |
-| SERVER       | zerossl       | Name for CA according to: https://github.com/acmesh-official/acme.sh/wiki/Server |
+| DOMAINS      |               | Comma separated list of domains/subdomains to generate certs for |
+| EMAIL        |               | Email to register with the CA |
+| TEST         | false         | Run verbose and in debug/staging mode. Possible values: `false`, `true` |
+| MODE         | alpn          | Challenge mode. Possible values: `alpn`, `http` |
+| SERVER       | zerossl       | CA name per [acme.sh servers](https://github.com/acmesh-official/acme.sh/wiki/Server) |
+| ACMEHOME     | /root/.acme.sh | acme.sh working directory (persist via volume) |
+| HAPROXYCERTSHOME | /etc/haproxy/certs | Directory where HAProxy PEM files are assembled |
 
 ### Run container:
 
-Example of run command (replace DOMAIN, TEST and volume paths with yours)
-Setting TEST to true will result in staging letsencrypt certificates, which is useful for testing.
+Example of run command (replace domains, email, and volume paths with yours).
+Setting `TEST=true` uses the staging CA and enables debug output, which is useful for testing.
 
 ```
 docker run --name lb -d \
     -e DOMAINS=my.domain,my.other.domain \
+    -e EMAIL=you@example.com \
     -e TEST=false \
     -v /srv/letsencrypt:/root/.acme.sh \
     -v /srv/haproxycfg/haproxy.cfg:/etc/haproxy/haproxy.cfg \
@@ -46,17 +49,16 @@ docker run --name lb -d \
 
 ### Run with docker-compose:
 
-Use the docker-compose.yml file in `run` directory (it creates 2 containers, the haproxy one and a nginx container linked in haproxy configuration for test purposes)
+Example compose file (haproxy plus a linked nginx backend for testing):
 
 ```
-docker-compose.yml file contenct:
-
 version: '3'
 services:
     haproxy:
         container_name: lb
         environment:
             - DOMAINS=my.domain,my.other.domain
+            - EMAIL=you@example.com
             - TEST=false
         volumes:
             - '$PWD/data/letsencrypt:/root/.acme.sh'
@@ -75,15 +77,25 @@ services:
 
 networks:
   lbnet:
-  
 
 docker-compose up -d
-
 ```
 
 ### Renewal cron job
 
-Every 2 months a cron job check for expiring certificates with certbot agent and reload haproxy if a certificate is renewed. No containers restart needed.
+A daily Alpine periodic job runs `acme.sh --cron` with GNU wget. On successful
+renewal it rebuilds HAProxy PEM files under `/etc/haproxy/certs` and restarts
+only the HAProxy process via supervisord. A container restart is not required.
+
+For `MODE=alpn`, certificates are issued on port 443 before HAProxy starts.
+Renewals use port 10443; HAProxy must route `acme-tls/1` traffic received on
+443 to that port.
+
+For `MODE=http`, certificates are issued on port 80 before HAProxy starts.
+Renewals use port 10808; HAProxy must route
+`/.well-known/acme-challenge/` requests on port 80 to that port. See
+[`conf/haproxy.http01.cfg`](conf/haproxy.http01.cfg).
+
 
 ## License
 
