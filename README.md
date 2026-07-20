@@ -96,6 +96,14 @@ Renewals use port 10808; HAProxy must route
 `/.well-known/acme-challenge/` requests on port 80 to that port. See
 [`conf/haproxy.http01.cfg`](conf/haproxy.http01.cfg).
 
+## Image publishing
+
+Pushing a `v*` tag whose commit is on `master` publishes linux/amd64 images
+tagged with that Git tag and `latest`. Configure these repository secrets:
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN` — a Docker Hub access token with repository write access
+
 
 ## License
 
